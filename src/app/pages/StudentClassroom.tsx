@@ -17,7 +17,7 @@ export function StudentClassroom() {
   const [isLoading, setIsLoading] = useState(true);
 
   // In a real app, you get this from the logged-in student's profile!
-  const myAssignedInstructorId = 'demo-instructor-1'; 
+  const myAssignedInstructorId = '0c57a7bd-d611-4eac-8a74-10364079faef'; 
 
   useEffect(() => {
     fetchMyClassMaterials();
