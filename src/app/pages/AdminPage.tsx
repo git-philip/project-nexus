@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { 
   Server, Users, ShieldAlert, LogOut, Activity, 
   Terminal, Database, Power, Search, Edit, Trash2, 
-  Eye, Award, Loader2, CheckCircle2, UserPlus, X
+  Eye, Award, Loader2, CheckCircle2, UserPlus, X, Save
 } from 'lucide-react';
 import { supabase } from "../../lib/supabaseClient"; 
 
@@ -26,6 +26,11 @@ export function AdminPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'student', instructor_id: '' });
+
+  // --- EDIT PERSONNEL STATES (NEW) ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [editingUser, setEditingUser] = useState({ id: '', name: '', email: '', role: 'student', instructor_id: '' });
 
   // --- SECURITY STATES ---
   const [isLockdown, setIsLockdown] = useState(false);
@@ -93,6 +98,7 @@ export function AdminPage() {
           role: profile.role === 'student' ? 'Student' : profile.role === 'instructor' ? 'Instructor' : 'Admin',
           status: 'Active', 
           lastLogin: 'Live',
+          rawInstructorId: profile.assigned_instructor_id || '', // Added to help with editing
           details: profile.role === 'student' ? {
             instructor: instructorName,
             progress: progressStr,
@@ -146,6 +152,31 @@ export function AdminPage() {
     }
   };
 
+  // --- NEW UPDATE FUNCTION ---
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingUser(true);
+    
+    try {
+      const { error } = await supabase.from('profiles').update({
+        full_name: editingUser.name,
+        role: editingUser.role,
+        assigned_instructor_id: editingUser.role === 'student' ? (editingUser.instructor_id || null) : null
+      }).eq('id', editingUser.id);
+
+      if (error) throw error;
+
+      await fetchUsers(); // Refresh the table with new data
+      setIsEditModalOpen(false); // Close modal
+      
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Failed to update user.");
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
   const instructorList = users.filter(u => u.role === 'Instructor');
 
   const fetchSecurityStatus = async () => {
@@ -194,9 +225,7 @@ export function AdminPage() {
   );
 
   return (
-    // Changed flex-col to handle mobile vs flex-row for desktop
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row text-slate-300 font-sans selection:bg-emerald-500/30 overflow-hidden">
-      
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwdjIwaDIwVjIwSDIweiIgZmlsbD0icmdiYSgxNiwgMTg1LCAxMjksIDAuMDIpIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48L3N2Zz4=')] opacity-30 pointer-events-none" />
 
       {/* --- SIDEBAR / TOP NAV --- */}
@@ -210,13 +239,11 @@ export function AdminPage() {
           </p>
         </div>
 
-        {/* Mobile: Swipeable horizontal row. Desktop: Vertical column */}
         <div className="p-2 md:p-4 flex flex-row md:flex-col gap-2 overflow-x-auto scrollbar-none flex-grow">
           <NavButton icon={Activity} label="System Dashboard" isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
           <NavButton icon={Users} label="User Management" isActive={activeTab === 'users'} onClick={() => setActiveTab('users')} />
           <NavButton icon={Power} label="System Controls" isActive={activeTab === 'security'} onClick={() => setActiveTab('security')} />
           
-          {/* Mobile Logout Button embedded in scrollable nav */}
           <div className="md:hidden ml-auto pl-2 border-l border-white/10">
             <Button onClick={handleLogout} className="h-full bg-slate-950 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white uppercase tracking-widest text-[9px] flex items-center gap-1 px-3">
               <LogOut className="w-3 h-3" /> Sign Out
@@ -224,7 +251,6 @@ export function AdminPage() {
           </div>
         </div>
 
-        {/* Desktop Logout Button at bottom */}
         <div className="hidden md:block p-4 border-t border-white/10">
           <Button onClick={handleLogout} className="w-full bg-slate-950 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white uppercase tracking-widest text-[10px] flex items-center justify-center gap-2">
             <LogOut className="w-4 h-4" /> Sign Out
@@ -318,7 +344,22 @@ export function AdminPage() {
                               <button onClick={() => setInspectedUser(user)} className="p-1.5 md:p-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-slate-900 rounded transition-colors" title="View Details">
                                 <Eye className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
-                              <button className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:text-white rounded transition-colors hidden sm:block"><Edit className="w-3 h-3 md:w-4 md:h-4" /></button>
+                              {/* --- NEW EDIT BUTTON WIRING --- */}
+                              <button 
+                                onClick={() => {
+                                  setEditingUser({
+                                    id: user.id,
+                                    name: user.name,
+                                    email: user.email,
+                                    role: user.role.toLowerCase(), // Ensure it matches lowercase state
+                                    instructor_id: user.rawInstructorId
+                                  });
+                                  setIsEditModalOpen(true);
+                                }}
+                                className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:text-white rounded transition-colors hidden sm:block" title="Edit User"
+                              >
+                                <Edit className="w-3 h-3 md:w-4 md:h-4" />
+                              </button>
                               <button className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:text-red-400 rounded transition-colors"><Trash2 className="w-3 h-3 md:w-4 md:h-4" /></button>
                             </td>
                           </tr>
@@ -442,6 +483,68 @@ export function AdminPage() {
                     <div className="pt-4 flex gap-2 md:gap-3 border-t border-white/5">
                       <Button type="button" onClick={() => setIsAddModalOpen(false)} variant="ghost" className="flex-1 text-slate-400 hover:text-white uppercase tracking-widest text-[9px] md:text-[10px] h-10">Cancel</Button>
                       <Button type="submit" disabled={isAddingUser} className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold uppercase tracking-widest text-[9px] md:text-[10px] h-10">{isAddingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Register User'}</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- EDIT USER MODAL (NEW) --- */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full max-w-md">
+              <Card className="bg-slate-900 border-amber-500/50 shadow-[0_0_50px_rgba(251,191,36,0.15)] overflow-hidden">
+                <div className="bg-amber-500/10 border-b border-amber-500/20 p-3 md:p-4 flex justify-between items-center">
+                  <h2 className="text-sm md:text-lg font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                    <Edit className="w-4 h-4 md:w-5 md:h-5" /> Edit User
+                  </h2>
+                  <button onClick={() => setIsEditModalOpen(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4 md:w-5 md:h-5" /></button>
+                </div>
+                
+                <CardContent className="p-4 md:p-6">
+                  <form onSubmit={handleUpdateUser} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[9px] md:text-[10px] text-slate-400 font-mono uppercase tracking-widest">Full Name</Label>
+                      <Input 
+                        required value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})}
+                        className="bg-slate-950 border-white/10 text-white font-mono h-10 text-xs md:text-sm" 
+                      />
+                    </div>
+                    {/* Notice: Email is disabled in Edit mode because changing auth emails in Supabase requires special admin rights/email confirmation */}
+                    <div className="space-y-2">
+                      <Label className="text-[9px] md:text-[10px] text-slate-400 font-mono uppercase tracking-widest">Email Address</Label>
+                      <Input 
+                        disabled value={editingUser.email}
+                        className="bg-slate-950/50 border-white/5 text-slate-500 font-mono h-10 text-xs md:text-sm cursor-not-allowed" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] md:text-[10px] text-slate-400 font-mono uppercase tracking-widest">Access Role</Label>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={() => setEditingUser({...editingUser, role: 'student'})} className={`flex-1 font-mono uppercase tracking-widest text-[9px] md:text-[10px] h-10 ${editingUser.role === 'student' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-950 text-slate-500 border-white/10'}`}>Student</Button>
+                        <Button type="button" variant="outline" onClick={() => setEditingUser({...editingUser, role: 'instructor', instructor_id: ''})} className={`flex-1 font-mono uppercase tracking-widest text-[9px] md:text-[10px] h-10 ${editingUser.role === 'instructor' ? 'bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/50' : 'bg-slate-950 text-slate-500 border-white/10'}`}>Instructor</Button>
+                      </div>
+                    </div>
+                    <AnimatePresence>
+                      {editingUser.role === 'student' && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2 pt-2">
+                          <Label className="text-[9px] md:text-[10px] text-amber-400 font-mono uppercase tracking-widest">Assign to Instructor</Label>
+                          <select required value={editingUser.instructor_id || ''} onChange={e => setEditingUser({...editingUser, instructor_id: e.target.value})} className="w-full bg-slate-950 border border-amber-500/30 text-white font-mono h-10 rounded-md px-3 text-xs md:text-sm outline-none focus:border-amber-400">
+                            <option value="" disabled>Select an Instructor...</option>
+                            {instructorList.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+                          </select>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <div className="pt-4 flex gap-2 md:gap-3 border-t border-white/5">
+                      <Button type="button" onClick={() => setIsEditModalOpen(false)} variant="ghost" className="flex-1 text-slate-400 hover:text-white uppercase tracking-widest text-[9px] md:text-[10px] h-10">Cancel</Button>
+                      <Button type="submit" disabled={isUpdatingUser} className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase tracking-widest text-[9px] md:text-[10px] h-10 flex items-center justify-center gap-2">
+                        {isUpdatingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+                      </Button>
                     </div>
                   </form>
                 </CardContent>
