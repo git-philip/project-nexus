@@ -28,7 +28,7 @@ export function StudentClassroom() {
       const { data, error } = await supabase
         .from('class_materials')
         .select('*')
-        .eq('instructor_id', myAssignedInstructorId) // Only fetch files from my teacher
+        .eq('instructor_id', myAssignedInstructorId) // <-- Matches your Supabase table perfectly!
         .order('created_at', { ascending: false });
 
       if (error) throw error;
