@@ -1,3 +1,11 @@
+import motherboardModel from '@/assets/motherboard.glb';
+import cpuModel from '@/assets/cpu.glb';
+import ramModel from '@/assets/ram.glb';
+import storageModel from '@/assets/storage.glb';
+import coolerModel from '@/assets/cooler.glb';
+import gpuModel from '@/assets/gpu.glb';
+import chassisModel from '@/assets/chassis.glb';
+import psuModel from '@/assets/psu.glb';
 
 import { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
