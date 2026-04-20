@@ -24,12 +24,16 @@ export function StudentClassroom() {
   }, []);
 
   const fetchMyClassMaterials = async () => {
+    console.log("1. Fetching materials for instructor:", myAssignedInstructorId); 
     try {
       const { data, error } = await supabase
         .from('class_materials')
         .select('*')
-        .eq('instructor_id', myAssignedInstructorId) // <-- Matches your Supabase table perfectly!
+        .eq('instructor_id', myAssignedInstructorId)
         .order('created_at', { ascending: false });
+
+      console.log("2. Supabase Data returned:", data); 
+      console.log("3. Supabase Error returned:", error); 
 
       if (error) throw error;
       setMaterials(data || []);
