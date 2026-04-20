@@ -6,6 +6,14 @@ import { Camera, Scan, RotateCcw, Cpu, Info, List, TerminalSquare, Wifi, SwitchC
 import { motion, AnimatePresence } from 'motion/react';
 import Webcam from 'react-webcam';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import motherboardModel from '../../assets/motherboard.glb';
+import cpuModel from '../../assets/cpu.glb';
+import ramModel from '../../assets/ram.glb';
+import storageModel from '../../assets/storage.glb';
+import coolerModel from '../../assets/cooler.glb';
+import gpuModel from '../../assets/gpu.glb';
+import chassisModel from '../../assets/chassis.glb';
+import psuModel from '../../assets/psu.glb';
 
 // --- 3D IMPORTS ---
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -305,7 +313,11 @@ export function ARScanner() {
   );
 }
 
-useGLTF.preload('/gpu.glb');
-useGLTF.preload('/cpu.glb');
-useGLTF.preload('/ram.glb');
-useGLTF.preload('/motherboard.glb');
+useGLTF.preload(motherboardModel);
+useGLTF.preload(cpuModel); 
+useGLTF.preload(ramModel);
+useGLTF.preload(gpuModel);
+useGLTF.preload(coolerModel);
+useGLTF.preload(storageModel);
+useGLTF.preload(chassisModel);
+useGLTF.preload(psuModel);
