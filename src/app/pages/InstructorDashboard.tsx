@@ -112,18 +112,25 @@ export function InstructorDashboard() {
 
     setIsUploading(true);
     try {
+      // 1. GET THE LOGGED-IN INSTRUCTOR'S DATA FIRST!
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Could not find logged in user.");
+
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filePath = `${Date.now()}_${cleanFileName}`;
       
+      // Upload the actual file to storage
       const { error: uploadError } = await supabase.storage.from('class_materials').upload(filePath, file);
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('class_materials').getPublicUrl(filePath);
 
+      // 2. SAVE TO DATABASE WITH THE INSTRUCTOR ID!
       const { error: dbError } = await supabase.from('class_materials').insert([{
         name: file.name,
         size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-        url: publicUrl
+        url: publicUrl,
+        instructor_id: user.id // <-- THIS IS THE MAGIC FIX!
       }]);
 
       if (dbError) throw dbError;
@@ -133,6 +140,9 @@ export function InstructorDashboard() {
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      // Bonus: Refresh the dashboard data so the new file instantly appears!
+      fetchDashboardData(); 
     }
   };
 
