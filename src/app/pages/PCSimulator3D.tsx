@@ -67,7 +67,8 @@ function InteractiveScrew({ position, screwRotation = [0, 0, 0], onFasten, onUnf
     else { setIsFastened(false); onUnfasten(); }
   };
   return (
-    <group position={position} rotation={screwRotation} onClick={handleClick} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = isScrewEquipped ? "url('/screwdriver.png') 32 0, crosshair" : 'not-allowed'; }} onPointerOut={() => (document.body.style.cursor = 'auto')}>
+    <group position={position} rotation={screwRotation} onClick={handleClick} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = isScrewEquipped ? "url('/screwdriver.png') 16 16, crosshair" : 'not-allowed'; 
+}} onPointerOut={() => (document.body.style.cursor = 'auto')}>
       <mesh><cylinderGeometry args={[0.15, 0.15, 0.15, 16]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
       {!isFastened ? (
         <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.04, 0.015, 16, 32]} /><meshBasicMaterial color="#ef4444" /></mesh>
@@ -531,7 +532,7 @@ export function PCSimulator3D() {
       <Canvas 
         camera={{ position: [0, 4, 6], fov: 45 }} 
         className="w-full h-full"
-        style={{ cursor: isScrewEquipped ? "url('/screwdriver.png') 32 0, crosshair" : "grab" }}
+        style={{ cursor: isScrewEquipped ? "url('/screwdriver.png') 16 16, crosshair" : "grab" }}
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 10, 5]} intensity={1} />
