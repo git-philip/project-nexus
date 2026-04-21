@@ -27,13 +27,18 @@ export function AdminPage() {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'student', instructor_id: '' });
 
-  // --- EDIT PERSONNEL STATES (NEW) ---
+  // --- EDIT PERSONNEL STATES ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [editingUser, setEditingUser] = useState({ id: '', name: '', email: '', role: 'student', instructor_id: '' });
 
-  // --- SECURITY STATES ---
-  const [isLockdown, setIsLockdown] = useState(false);
+  // --- SECURITY STATES (GRANULAR) ---
+  const [locks, setLocks] = useState({
+    global: false,
+    pc_sim_locked: false,
+    ar_scan_locked: false,
+    ai_chat_locked: false
+  });
   const [isPurging, setIsPurging] = useState(false);
 
   const handleLogout = () => navigate('/');
@@ -98,7 +103,7 @@ export function AdminPage() {
           role: profile.role === 'student' ? 'Student' : profile.role === 'instructor' ? 'Instructor' : 'Admin',
           status: 'Active', 
           lastLogin: 'Live',
-          rawInstructorId: profile.assigned_instructor_id || '', // Added to help with editing
+          rawInstructorId: profile.assigned_instructor_id || '', 
           details: profile.role === 'student' ? {
             instructor: instructorName,
             progress: progressStr,
@@ -152,7 +157,6 @@ export function AdminPage() {
     }
   };
 
-  // --- NEW UPDATE FUNCTION ---
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdatingUser(true);
@@ -166,8 +170,8 @@ export function AdminPage() {
 
       if (error) throw error;
 
-      await fetchUsers(); // Refresh the table with new data
-      setIsEditModalOpen(false); // Close modal
+      await fetchUsers(); 
+      setIsEditModalOpen(false); 
       
     } catch (error) {
       console.error("Error updating user:", error);
@@ -179,29 +183,35 @@ export function AdminPage() {
 
   const instructorList = users.filter(u => u.role === 'Instructor');
 
+  // --- UPDATED GRANULAR SECURITY FUNCTIONS ---
   const fetchSecurityStatus = async () => {
     try {
-      const { data, error } = await supabase.from('system_status').select('maintenance_mode').eq('id', 1).single();
-      if (!error && data) setIsLockdown(data.maintenance_mode);
+      const { data, error } = await supabase.from('system_status').select('*').eq('id', 1).single();
+      if (!error && data) {
+        setLocks({
+          global: data.maintenance_mode,
+          pc_sim_locked: data.pc_sim_locked || false,
+          ar_scan_locked: data.ar_scan_locked || false,
+          ai_chat_locked: data.ai_chat_locked || false
+        });
+      }
     } catch (err) {
       console.error("Failed to fetch security status:", err);
     }
   };
 
-  const toggleLockdown = async () => {
+  const toggleModuleLock = async (dbColumn: string, currentValue: boolean) => {
     try {
-      const newStatus = !isLockdown;
-      setIsLockdown(newStatus); 
+      // Optimistic UI update
+      setLocks(prev => ({ ...prev, [dbColumn === 'maintenance_mode' ? 'global' : dbColumn]: !currentValue })); 
       
-      const { error } = await supabase.from('system_status').update({ maintenance_mode: newStatus }).eq('id', 1);
-      
-      if (error) {
-        setIsLockdown(!newStatus); 
-        throw error;
-      }
+      // Update database
+      const { error } = await supabase.from('system_status').update({ [dbColumn]: !currentValue }).eq('id', 1);
+      if (error) throw error;
     } catch (err) {
-      console.error("Failed to toggle lockdown:", err);
-      alert("Failed to lock system. Check database connection.");
+      console.error("Failed to toggle lock:", err);
+      alert("Failed to lock module. Check database connection.");
+      fetchSecurityStatus(); // Revert UI on failure
     }
   };
 
@@ -273,7 +283,7 @@ export function AdminPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <StatCard title="Total Registered" value={users.length || "..."} icon={Users} trend="Database synced" isGood />
                 <StatCard title="Overall Pass Rate" value="78%" icon={Award} trend="Up 2% this week" isGood />
-                <StatCard title="System Status" value={isLockdown ? "LOCKED" : "LIVE"} icon={isLockdown ? ShieldAlert : CheckCircle2} trend={isLockdown ? "Maintenance Mode" : "Systems nominal"} isBad={isLockdown} isGood={!isLockdown} />
+                <StatCard title="System Status" value={locks.global ? "LOCKED" : "LIVE"} icon={locks.global ? ShieldAlert : CheckCircle2} trend={locks.global ? "Maintenance Mode" : "Systems nominal"} isBad={locks.global} isGood={!locks.global} />
               </div>
 
               <Card className="bg-slate-900/60 border-white/10 backdrop-blur-sm">
@@ -344,14 +354,13 @@ export function AdminPage() {
                               <button onClick={() => setInspectedUser(user)} className="p-1.5 md:p-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-slate-900 rounded transition-colors" title="View Details">
                                 <Eye className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
-                              {/* --- NEW EDIT BUTTON WIRING --- */}
                               <button 
                                 onClick={() => {
                                   setEditingUser({
                                     id: user.id,
                                     name: user.name,
                                     email: user.email,
-                                    role: user.role.toLowerCase(), // Ensure it matches lowercase state
+                                    role: user.role.toLowerCase(), 
                                     instructor_id: user.rawInstructorId
                                   });
                                   setIsEditModalOpen(true);
@@ -380,52 +389,87 @@ export function AdminPage() {
                 <p className="text-xs md:text-sm text-slate-400 font-mono mt-1">Warning: Actions here affect all active instructors and students.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 
-                <Card className={`bg-slate-900/60 border-red-500/30 backdrop-blur-sm relative overflow-hidden group transition-all duration-300 ${isLockdown ? 'border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.1)]' : ''}`}>
-                  <div className={`absolute inset-0 transition-colors pointer-events-none ${isLockdown ? 'bg-emerald-500/5' : 'bg-red-500/5 group-hover:bg-red-500/10'}`} />
-                  <CardHeader className="relative z-10">
-                    <CardTitle className={`text-base md:text-lg font-black uppercase flex items-center gap-2 ${isLockdown ? 'text-emerald-400' : 'text-white'}`}>
-                      <Power className={`w-4 h-4 md:w-5 md:h-5 ${isLockdown ? 'text-emerald-400' : 'text-red-400'}`} /> 
-                      {isLockdown ? 'Unlock System' : 'Lock System'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 relative z-10">
-                    <p className="text-xs md:text-sm text-slate-400 font-mono min-h-[40px]">
-                      {isLockdown 
-                        ? "The system is currently LOCKED. Students and instructors cannot log in. Disengage to restore access." 
-                        : "Locks out all students and instructors. Current sessions will be immediately terminated."}
-                    </p>
-                    <Button 
-                      onClick={toggleLockdown}
-                      variant={isLockdown ? "default" : "destructive"} 
-                      className={`w-full uppercase tracking-widest text-[10px] md:text-xs font-bold transition-all relative z-20
-                        ${isLockdown 
-                          ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' 
-                          : 'bg-red-500/20 text-red-400 border border-red-500 hover:bg-red-500 hover:text-white'}`}
-                    >
-                      {isLockdown ? 'Unlock System' : 'Lock System'}
-                    </Button>
-                  </CardContent>
-                </Card>
+                {/* --- GRANULAR MODULE CONTROLS --- */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">Module Access Controls</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Global Lockdown */}
+                    <Card className={`bg-slate-900/60 border-red-500/30 backdrop-blur-sm p-4 flex flex-col justify-between transition-all ${locks.global ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : ''}`}>
+                      <div>
+                        <h4 className={`text-sm font-bold uppercase flex items-center gap-2 mb-1 ${locks.global ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <Power className="w-4 h-4" /> Global Access
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono mb-3">Overrides everything. Locks the entire platform.</p>
+                      </div>
+                      <Button onClick={() => toggleModuleLock('maintenance_mode', locks.global)} variant={locks.global ? "default" : "destructive"} className={`w-full text-[10px] uppercase font-bold tracking-widest ${locks.global ? 'bg-emerald-500 text-slate-950' : ''}`}>
+                        {locks.global ? 'Unlock Platform' : 'Engage Lockdown'}
+                      </Button>
+                    </Card>
 
-                <Card className="bg-slate-900/60 border-red-500/30 backdrop-blur-sm relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors pointer-events-none" />
-                  <CardHeader className="relative z-10">
-                    <CardTitle className="text-base md:text-lg text-white font-black uppercase flex items-center gap-2">
-                      <Database className="w-4 h-4 md:w-5 md:h-5 text-red-400" /> Reset Database
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 relative z-10">
-                    <p className="text-xs md:text-sm text-slate-400 font-mono min-h-[40px]">Permanently deletes all student progress, instructor grades, and uploaded materials.</p>
-                    <Button 
-                      onClick={purgeMatrix} disabled={isPurging} variant="destructive" 
-                      className="w-full bg-red-500 text-white hover:bg-red-600 uppercase tracking-widest text-[10px] md:text-xs font-black relative z-20"
-                    >
-                      {isPurging ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete All Data'}
-                    </Button>
-                  </CardContent>
-                </Card>
+                    {/* PC Simulator Lock */}
+                    <Card className="bg-slate-900/60 border-white/10 backdrop-blur-sm p-4 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm text-cyan-400 font-bold uppercase flex items-center gap-2 mb-1">
+                          <Server className="w-4 h-4" /> PC Simulator
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono mb-3">Lock out students from the 3D PC Builder.</p>
+                      </div>
+                      <Button onClick={() => toggleModuleLock('pc_sim_locked', locks.pc_sim_locked)} variant={locks.pc_sim_locked ? "default" : "outline"} className={`w-full text-[10px] uppercase font-bold tracking-widest ${locks.pc_sim_locked ? 'bg-amber-500 text-slate-950 border-amber-500' : 'text-slate-400 border-white/10 hover:border-cyan-500/50 hover:text-cyan-400'}`}>
+                        {locks.pc_sim_locked ? 'Unlock Module' : 'Lock Module'}
+                      </Button>
+                    </Card>
+
+                    {/* AR Scanner Lock */}
+                    <Card className="bg-slate-900/60 border-white/10 backdrop-blur-sm p-4 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm text-fuchsia-400 font-bold uppercase flex items-center gap-2 mb-1">
+                          <Activity className="w-4 h-4" /> AR Scanner
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono mb-3">Disable the Augmented Reality camera feed.</p>
+                      </div>
+                      <Button onClick={() => toggleModuleLock('ar_scan_locked', locks.ar_scan_locked)} variant={locks.ar_scan_locked ? "default" : "outline"} className={`w-full text-[10px] uppercase font-bold tracking-widest ${locks.ar_scan_locked ? 'bg-amber-500 text-slate-950 border-amber-500' : 'text-slate-400 border-white/10 hover:border-fuchsia-500/50 hover:text-fuchsia-400'}`}>
+                        {locks.ar_scan_locked ? 'Unlock Module' : 'Lock Module'}
+                      </Button>
+                    </Card>
+
+                    {/* AI Chatbot Lock */}
+                    <Card className="bg-slate-900/60 border-white/10 backdrop-blur-sm p-4 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm text-blue-400 font-bold uppercase flex items-center gap-2 mb-1">
+                          <Terminal className="w-4 h-4" /> AI Chatbot
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono mb-3">Temporarily disable the AI Tutor.</p>
+                      </div>
+                      <Button onClick={() => toggleModuleLock('ai_chat_locked', locks.ai_chat_locked)} variant={locks.ai_chat_locked ? "default" : "outline"} className={`w-full text-[10px] uppercase font-bold tracking-widest ${locks.ai_chat_locked ? 'bg-amber-500 text-slate-950 border-amber-500' : 'text-slate-400 border-white/10 hover:border-blue-500/50 hover:text-blue-400'}`}>
+                        {locks.ai_chat_locked ? 'Unlock Module' : 'Lock Module'}
+                      </Button>
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-red-500 uppercase tracking-widest border-b border-red-500/20 pb-2">Destructive Actions</h3>
+                  <Card className="bg-slate-900/60 border-red-500/30 backdrop-blur-sm relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors pointer-events-none" />
+                    <CardHeader className="relative z-10">
+                      <CardTitle className="text-base md:text-lg text-white font-black uppercase flex items-center gap-2">
+                        <Database className="w-4 h-4 md:w-5 md:h-5 text-red-400" /> Reset Database
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 relative z-10">
+                      <p className="text-xs md:text-sm text-slate-400 font-mono min-h-[40px]">Permanently deletes all student progress, instructor grades, and uploaded materials.</p>
+                      <Button 
+                        onClick={purgeMatrix} disabled={isPurging} variant="destructive" 
+                        className="w-full bg-red-500 text-white hover:bg-red-600 uppercase tracking-widest text-[10px] md:text-xs font-black relative z-20"
+                      >
+                        {isPurging ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete All Data'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
 
               </div>
             </motion.div>
@@ -492,7 +536,7 @@ export function AdminPage() {
         )}
       </AnimatePresence>
 
-      {/* --- EDIT USER MODAL (NEW) --- */}
+      {/* --- EDIT USER MODAL --- */}
       <AnimatePresence>
         {isEditModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
@@ -514,7 +558,6 @@ export function AdminPage() {
                         className="bg-slate-950 border-white/10 text-white font-mono h-10 text-xs md:text-sm" 
                       />
                     </div>
-                    {/* Notice: Email is disabled in Edit mode because changing auth emails in Supabase requires special admin rights/email confirmation */}
                     <div className="space-y-2">
                       <Label className="text-[9px] md:text-[10px] text-slate-400 font-mono uppercase tracking-widest">Email Address</Label>
                       <Input 
