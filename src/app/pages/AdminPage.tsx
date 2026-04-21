@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { 
   Server, Users, ShieldAlert, LogOut, Activity, 
   Terminal, Database, Power, Search, Edit, Trash2, 
-  Eye, Award, Loader2, CheckCircle2, UserPlus, X, Save
+  Eye, Award, Loader2, CheckCircle2, UserPlus, X, Save, Network
 } from 'lucide-react';
 import { supabase } from "../../lib/supabaseClient"; 
 
@@ -37,7 +37,8 @@ export function AdminPage() {
     global: false,
     pc_sim_locked: false,
     ar_scan_locked: false,
-    ai_chat_locked: false
+    ai_chat_locked: false,
+    net_sim_locked: false
   });
   const [isPurging, setIsPurging] = useState(false);
 
@@ -192,7 +193,8 @@ export function AdminPage() {
           global: data.maintenance_mode,
           pc_sim_locked: data.pc_sim_locked || false,
           ar_scan_locked: data.ar_scan_locked || false,
-          ai_chat_locked: data.ai_chat_locked || false
+          ai_chat_locked: data.ai_chat_locked || false,
+          net_sim_locked: data.net_sim_locked || false
         });
       }
     } catch (err) {
@@ -447,6 +449,20 @@ export function AdminPage() {
                         {locks.ai_chat_locked ? 'Unlock Module' : 'Lock Module'}
                       </Button>
                     </Card>
+
+                    {/* Network Simulator Lock */}
+                    <Card className="bg-slate-900/60 border-white/10 backdrop-blur-sm p-4 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm text-emerald-400 font-bold uppercase flex items-center gap-2 mb-1">
+                          <Network className="w-4 h-4" /> Network Simulator
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono mb-3">Lock out students from the Network Topology Builder.</p>
+                      </div>
+                      <Button onClick={() => toggleModuleLock('net_sim_locked', locks.net_sim_locked)} variant={locks.net_sim_locked ? "default" : "outline"} className={`w-full text-[10px] uppercase font-bold tracking-widest ${locks.net_sim_locked ? 'bg-amber-500 text-slate-950 border-amber-500' : 'text-slate-400 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400'}`}>
+                        {locks.net_sim_locked ? 'Unlock Module' : 'Lock Module'}
+                      </Button>
+                    </Card>
+
                   </div>
                 </div>
 
