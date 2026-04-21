@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -7,7 +8,7 @@ import { Label } from '../components/ui/label';
 import { 
   Router, Network, Server, Monitor, 
   TerminalSquare, Trash2, Send, X, ShieldCheck,
-  Wifi, Link2, GitCommit, RadioTower, Undo2, Wrench, AlertCircle, CheckCircle2, Info
+  Wifi, Link2, GitCommit, RadioTower, Undo2, Wrench, AlertCircle, CheckCircle2, Info, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from "../../lib/supabaseClient"; 
@@ -59,6 +60,7 @@ const getCorrectCable = (type1: NodeType, type2: NodeType): LinkType => {
 };
 
 export function NetworkSimulator() {
+  const navigate = useNavigate();
   const [nodes, setNodes] = useState<NetNode[]>([]);
   const [links, setLinks] = useState<NetLink[]>([]);
   const [history, setHistory] = useState<{nodes: NetNode[], links: NetLink[]}[]>([]);
@@ -67,9 +69,7 @@ export function NetworkSimulator() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(null);
   
-  // Replaced terminal logs with a sleek Toast notification system
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  
   const [pingPath, setPingPath] = useState<{ nodes: string[], activeHop: number } | null>(null);
   
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
@@ -84,6 +84,30 @@ export function NetworkSimulator() {
   const [editGateway, setEditGateway] = useState('');
 
   const [isToolMenuOpen, setIsToolMenuOpen] = useState(false);
+
+  // --- GRANULAR SECURITY LOCKOUT STATE ---
+  const [isLocked, setIsLocked] = useState(false);
+
+  // --- REAL-TIME SECURITY LISTENER ---
+  useEffect(() => {
+    const fetchLockStatus = async () => {
+      const { data } = await supabase.from('system_status').select('*').eq('id', 1).single();
+      if (data) setIsLocked(data.maintenance_mode || data.net_sim_locked);
+    };
+    fetchLockStatus();
+
+    const channel = supabase
+      .channel('net-sim-lock')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (payload) => {
+        const newData = payload.new;
+        setIsLocked(newData.maintenance_mode || newData.net_sim_locked);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const saveProgressToDB = async (moduleName: string, percentage: number) => {
     try {
@@ -170,10 +194,9 @@ export function NetworkSimulator() {
     }
   }, [pingPath?.activeHop]);
 
-  // Replaced addLog with showToast
   const showToast = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
     setToast({ id: Date.now().toString(), text, type });
-    setTimeout(() => setToast(null), 4000); // Auto dismiss after 4 seconds
+    setTimeout(() => setToast(null), 4000); 
   };
 
   const handleCanvasClick = (e: ReactMouseEvent) => {
@@ -379,6 +402,21 @@ export function NetworkSimulator() {
 
   return (
     <div className="absolute inset-0 bg-slate-950 font-sans overflow-hidden flex flex-col md:pt-8 md:px-8 touch-none">
+      
+      {/* --- THE LOCKOUT OVERLAY --- */}
+      <AnimatePresence>
+        {isLocked && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+            <Lock className="w-16 h-16 text-red-500 mb-4 animate-pulse" />
+            <h1 className="text-2xl md:text-4xl font-black text-white uppercase tracking-widest mb-2">Module Locked</h1>
+            <p className="text-slate-400 font-mono text-sm mb-8 max-w-md">The Network Simulator module has been locked by your instructor. Please return to your dashboard.</p>
+            <Button onClick={() => navigate(-1)} className="bg-red-500 hover:bg-red-400 text-slate-950 font-bold uppercase tracking-widest px-8">
+              Return to Dashboard
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwdjIwaDIwVjIwSDIweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+')] opacity-20 pointer-events-none" />
 
       <div className="w-full h-full flex flex-col relative z-10 pt-4 md:pt-0">

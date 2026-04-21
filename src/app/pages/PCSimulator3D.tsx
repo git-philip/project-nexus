@@ -1,3 +1,15 @@
+import { Suspense, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, useGLTF, Html, Environment, ContactShadows } from '@react-three/drei';
+import { Cpu, X, Server, MonitorPlay, Database, Zap, Fan, Box, Wrench, ShieldCheck, Layers, Lock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { supabase } from "../../lib/supabaseClient"; 
+
+// --- 3D MODEL IMPORTS ---
 import motherboardModel from '@/assets/motherboard.glb';
 import cpuModel from '@/assets/cpu.glb';
 import ramModel from '@/assets/ram.glb';
@@ -6,16 +18,6 @@ import coolerModel from '@/assets/cooler.glb';
 import gpuModel from '@/assets/gpu.glb';
 import chassisModel from '@/assets/chassis.glb';
 import psuModel from '@/assets/psu.glb';
-
-import { Suspense, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Html, Environment, ContactShadows } from '@react-three/drei';
-import { Cpu, X, Server, MonitorPlay, Database, Zap, Fan, Box, Wrench, ShieldCheck, Layers } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { supabase } from "../../lib/supabaseClient"; 
 
 // --- INVENTORY DATA WITH SCREW COUNTS & DEPENDENCIES ---
 const INVENTORY = [
@@ -67,8 +69,7 @@ function InteractiveScrew({ position, screwRotation = [0, 0, 0], onFasten, onUnf
     else { setIsFastened(false); onUnfasten(); }
   };
   return (
-    <group position={position} rotation={screwRotation} onClick={handleClick} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = isScrewEquipped ? "url('/screwdriver.png') 16 16, crosshair" : 'not-allowed'; 
-}} onPointerOut={() => (document.body.style.cursor = 'auto')}>
+    <group position={position} rotation={screwRotation} onClick={handleClick} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = isScrewEquipped ? "url('/screwdriver.png') 16 16, crosshair" : 'not-allowed'; }} onPointerOut={() => (document.body.style.cursor = 'auto')}>
       <mesh><cylinderGeometry args={[0.15, 0.15, 0.15, 16]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
       {!isFastened ? (
         <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.04, 0.015, 16, 32]} /><meshBasicMaterial color="#ef4444" /></mesh>
@@ -99,7 +100,7 @@ function HardwareModel({ onSelect }: any) {
 }
 
 function CPUModel({ onSecure, onUnsecure, onRemove }: any) {
-  const { scene } = useGLTF(cpuModel);
+  const { scene } = useGLTF(cpuModel); 
   useEffect(() => { onSecure(); }, [onSecure]); 
   return (
     <group position={[-0.25, 0.1, -0.32]} scale={0.25}>
@@ -174,7 +175,7 @@ function ChassisModel({ onSecure, onUnsecure, onRemove }: any) {
 }
 
 function PSUModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewError, isPrebuilt }: any) {
-  const { scene } = useGLTF(psuModel);
+  const { scene } = useGLTF(psuModel); 
   const [screws, setScrews] = useState(isPrebuilt ? 4 : 0);
   useEffect(() => { if (screws === 4) onSecure(); else onUnsecure(); }, [screws]);
   return (
@@ -191,6 +192,7 @@ function PSUModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewErro
 
 // --- THE MAIN SCREEN COMPONENT ---
 export function PCSimulator3D() {
+  const navigate = useNavigate();
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const [activeInventoryItem, setActiveInventoryItem] = useState<string | null>(null);
   const [installedParts, setInstalledParts] = useState<string[]>([]);
@@ -204,6 +206,30 @@ export function PCSimulator3D() {
   const [showDisassemblySuccess, setShowDisassemblySuccess] = useState(false);
   const [resetKey, setResetKey] = useState(0); 
   const [isInventoryMenuOpen, setIsInventoryMenuOpen] = useState(false);
+
+  // --- GRANULAR SECURITY LOCKOUT STATE ---
+  const [isLocked, setIsLocked] = useState(false);
+
+  // --- REAL-TIME SECURITY LISTENER ---
+  useEffect(() => {
+    const fetchLockStatus = async () => {
+      const { data } = await supabase.from('system_status').select('*').eq('id', 1).single();
+      if (data) setIsLocked(data.maintenance_mode || data.pc_sim_locked);
+    };
+    fetchLockStatus();
+
+    const channel = supabase
+      .channel('pc-sim-lock')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (payload) => {
+        const newData = payload.new;
+        setIsLocked(newData.maintenance_mode || newData.pc_sim_locked);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const saveProgressToDB = async (moduleName: string, percentage: number) => {
     try {
@@ -319,6 +345,21 @@ export function PCSimulator3D() {
 
   return (
     <div className="absolute inset-0 bg-slate-950 flex flex-col overflow-hidden touch-none">
+      
+      {/* --- THE LOCKOUT OVERLAY --- */}
+      <AnimatePresence>
+        {isLocked && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+            <Lock className="w-16 h-16 text-red-500 mb-4 animate-pulse" />
+            <h1 className="text-2xl md:text-4xl font-black text-white uppercase tracking-widest mb-2">Simulator Locked</h1>
+            <p className="text-slate-400 font-mono text-sm mb-8 max-w-md">The PC Simulator module has been locked by your instructor. Please return to your dashboard.</p>
+            <Button onClick={() => navigate(-1)} className="bg-red-500 hover:bg-red-400 text-slate-950 font-bold uppercase tracking-widest px-8">
+              Return to Dashboard
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
 
       <div className="hidden md:block absolute top-6 left-6 z-10 text-white font-mono pointer-events-none">

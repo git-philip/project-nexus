@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Camera, Scan, RotateCcw, Cpu, Info, List, TerminalSquare, Wifi, SwitchCamera } from 'lucide-react';
+import { Camera, Scan, RotateCcw, Cpu, Info, List, TerminalSquare, Wifi, SwitchCamera, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Webcam from 'react-webcam';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { supabase } from "../../lib/supabaseClient";
 
 import motherboardModel from '@/assets/motherboard.glb';
 import cpuModel from '@/assets/cpu.glb';
@@ -71,6 +73,7 @@ function Hologram({ type }: { type: string }) {
 }
 
 export function ARScanner() {
+  const navigate = useNavigate();
   const webcamRef = useRef<Webcam>(null);
   const [scanning, setScanning] = useState(false);
   const [componentInfo, setComponentInfo] = useState<ComponentInfo | null>(null);
@@ -80,6 +83,9 @@ export function ARScanner() {
   const [time, setTime] = useState(new Date());
   const [ping, setPing] = useState(24);
 
+  // --- GRANULAR SECURITY LOCKOUT STATE ---
+  const [isLocked, setIsLocked] = useState(false);
+
   // Live HUD Data
   useEffect(() => {
     const timer = setInterval(() => {
@@ -87,6 +93,27 @@ export function ARScanner() {
       if (Math.random() > 0.7) setPing(prev => Math.max(12, prev + (Math.random() > 0.5 ? 2 : -2)));
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // --- REAL-TIME SECURITY LISTENER ---
+  useEffect(() => {
+    const fetchLockStatus = async () => {
+      const { data } = await supabase.from('system_status').select('*').eq('id', 1).single();
+      if (data) setIsLocked(data.maintenance_mode || data.ar_scan_locked);
+    };
+    fetchLockStatus();
+
+    const channel = supabase
+      .channel('ar-scanner-lock')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (payload) => {
+        const newData = payload.new;
+        setIsLocked(newData.maintenance_mode || newData.ar_scan_locked);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const videoConstraints = {
@@ -142,15 +169,31 @@ export function ARScanner() {
   return (
     <div className="absolute inset-0 bg-black font-sans overflow-hidden touch-none flex flex-col">
       
-      {/* 1. CAMERA BACKGROUND */}
-      <Webcam
-        audio={false}
-        ref={webcamRef}
-        screenshotFormat="image/jpeg"
-        videoConstraints={videoConstraints}
-        mirrored={facingMode === 'user'} 
-        className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 z-0 ${componentInfo ? 'opacity-30 blur-md grayscale' : 'opacity-100'}`}
-      />
+      {/* --- THE LOCKOUT OVERLAY --- */}
+      <AnimatePresence>
+        {isLocked && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+            <Lock className="w-16 h-16 text-red-500 mb-4 animate-pulse" />
+            <h1 className="text-2xl md:text-4xl font-black text-white uppercase tracking-widest mb-2">Module Locked</h1>
+            <p className="text-slate-400 font-mono text-sm mb-8 max-w-md">The AR Scanner module has been locked by your instructor. Please return to your dashboard.</p>
+            <Button onClick={() => navigate(-1)} className="bg-red-500 hover:bg-red-400 text-slate-950 font-bold uppercase tracking-widest px-8">
+              Return to Dashboard
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 1. CAMERA BACKGROUND (Turns off camera if locked!) */}
+      {!isLocked && (
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          screenshotFormat="image/jpeg"
+          videoConstraints={videoConstraints}
+          mirrored={facingMode === 'user'} 
+          className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 z-0 ${componentInfo ? 'opacity-30 blur-md grayscale' : 'opacity-100'}`}
+        />
+      )}
 
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwdjIwaDIwVjIwSDIweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+')] opacity-20 pointer-events-none z-10" />
 
