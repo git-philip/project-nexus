@@ -20,7 +20,7 @@ export function LoginPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  // --- NEW: Maintenance Mode State ---
+  // --- Maintenance Mode State ---
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
 
   // Check if the system is under lockdown when the page loads
@@ -51,7 +51,6 @@ export function LoginPage() {
 
     try {
       // 1. Check if system is locked down BEFORE doing heavy auth
-      // (Unless they are trying to log in as an Admin)
       if (isMaintenanceMode && userType !== 'admin') {
         throw new Error("SYSTEM UNDER MAINTENANCE. Cadet and Instructor logins are temporarily disabled.");
       }
@@ -84,7 +83,6 @@ export function LoginPage() {
       }
 
       // 5. DOUBLE-CHECK MAINTENANCE OVERRIDE
-      // Just in case someone tried to sneak in by selecting 'Admin' on the UI but isn't actually one in the DB
       if (isMaintenanceMode && profileData.role !== 'admin') {
         await supabase.auth.signOut();
         throw new Error("SYSTEM UNDER MAINTENANCE. Access restricted to Administrators only.");
@@ -123,8 +121,9 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
       
-      {/* --- BACKGROUND ANIMATIONS --- */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none flex justify-between px-2 sm:px-10 opacity-15">
+      {/* --- BACKGROUND ANIMATIONS (OPTIMIZED FOR MOBILE) --- */}
+      {/* Hidden on mobile to prevent extreme paint lag, visible on desktop (md:flex) */}
+      <div className="hidden md:flex absolute inset-0 overflow-hidden pointer-events-none justify-between px-2 sm:px-10 opacity-15">
         {BINARY_COLUMNS.map((col, i) => (
           <motion.div
             key={i}
@@ -135,7 +134,7 @@ export function LoginPage() {
               ease: "linear",
               delay: Math.random() * -20, 
             }}
-            className={`font-mono text-[10px] md:text-xs leading-none ${isMaintenanceMode ? 'text-red-500' : 'text-cyan-500'}`}
+            className={`font-mono text-xs leading-none ${isMaintenanceMode ? 'text-red-500' : 'text-cyan-500'}`}
             style={{ 
               writingMode: 'vertical-rl', 
               textOrientation: 'upright', 
@@ -153,15 +152,18 @@ export function LoginPage() {
         className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwdjIwaDIwVjIwSDIweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+')] opacity-20 pointer-events-none" 
       />
       
+      {/* Primary Blur Circle: Scaled down on mobile */}
       <motion.div 
         animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] blur-[120px] rounded-full pointer-events-none ${isMaintenanceMode ? 'bg-red-500/10' : 'bg-cyan-500/10'}`} 
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] md:w-[600px] md:h-[600px] blur-[60px] md:blur-[120px] rounded-full pointer-events-none ${isMaintenanceMode ? 'bg-red-500/10' : 'bg-cyan-500/10'}`} 
       />
+      
+      {/* Secondary Blur Circle: Disabled on mobile (hidden md:block) to save GPU memory */}
       <motion.div 
         animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.3, 0.1] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className={`absolute top-1/2 left-1/2 translate-x-[-20%] translate-y-[-20%] w-[400px] h-[400px] blur-[100px] rounded-full pointer-events-none ${isMaintenanceMode ? 'bg-red-600/10' : 'bg-fuchsia-500/10'}`} 
+        className={`hidden md:block absolute top-1/2 left-1/2 translate-x-[-20%] translate-y-[-20%] w-[400px] h-[400px] blur-[100px] rounded-full pointer-events-none ${isMaintenanceMode ? 'bg-red-600/10' : 'bg-fuchsia-500/10'}`} 
       />
 
       {/* --- LOGIN CARD --- */}
@@ -171,7 +173,8 @@ export function LoginPage() {
         transition={{ duration: 0.7, ease: "easeOut" }}
         className="w-full max-w-md relative z-10"
       >
-        <Card className={`bg-slate-900/80 backdrop-blur-2xl border-y-white/10 border-x-transparent overflow-hidden rounded-xl relative ${isMaintenanceMode ? 'shadow-[0_0_50px_rgba(239,68,68,0.3)]' : 'shadow-[0_0_50px_rgba(0,0,0,0.5)]'}`}>
+        {/* Adjusted backdrop blur for mobile: backdrop-blur-xl vs md:backdrop-blur-2xl */}
+        <Card className={`bg-slate-900/80 backdrop-blur-xl md:backdrop-blur-2xl border-y-white/10 border-x-transparent overflow-hidden rounded-xl relative ${isMaintenanceMode ? 'shadow-[0_0_50px_rgba(239,68,68,0.3)]' : 'shadow-[0_0_50px_rgba(0,0,0,0.5)]'}`}>
           
           <motion.div
             animate={{ 
