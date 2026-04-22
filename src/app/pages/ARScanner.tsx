@@ -34,14 +34,14 @@ interface ComponentInfo {
 
 // --- 3D MODEL MAPPING ---
 const MODEL_MAP: Record<string, { file: string, scale: number, rotation: [number, number, number] }> = {
-  'gpu': { file: '/gpu.glb', scale: 1, rotation: [0, 0, 0] },
-  'cpu': { file: '/cpu.glb', scale: 1, rotation: [1.2, 0, 0] }, 
-  'ram': { file: '/ram.glb', scale: 16, rotation: [1.57, 0, 0] }, 
-  'motherboard': { file: '/motherboard.glb', scale: 1.2, rotation: [1.57, 0, 0] },
-  'storage': { file: '/storage.glb', scale: 1.5, rotation: [1.57, 0, 0] },
-  'cooler': { file: '/cooler.glb', scale: 1.2, rotation: [0, 0, 0] },
-  'chassis': { file: '/chassis.glb', scale: 8, rotation: [0, 0, 0] },
-  'psu': { file: '/psu.glb', scale: 1.2, rotation: [0, 0, 0] },
+  'gpu': { file: gpuModel, scale: 1, rotation: [0, 0, 0] },
+  'cpu': { file: cpuModel, scale: 1, rotation: [1.2, 0, 0] }, 
+  'ram': { file: ramModel, scale: 16, rotation: [1.57, 0, 0] }, 
+  'motherboard': { file: motherboardModel, scale: 1.2, rotation: [1.57, 0, 0] },
+  'storage': { file: storageModel, scale: 1.5, rotation: [1.57, 0, 0] },
+  'cooler': { file: coolerModel, scale: 1.2, rotation: [0, 0, 0] },
+  'chassis': { file: chassisModel, scale: 8, rotation: [0, 0, 0] },
+  'psu': { file: psuModel, scale: 1.2, rotation: [0, 0, 0] },
 };
 
 // --- THE HOLOGRAPHIC PROJECTOR ---
