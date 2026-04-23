@@ -9,6 +9,15 @@ import Webcam from 'react-webcam';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from "../../lib/supabaseClient";
 
+import motherboardModel from '@/assets/motherboard.glb';
+import cpuModel from '@/assets/cpu.glb';
+import ramModel from '@/assets/ram.glb';
+import storageModel from '@/assets/storage.glb';
+import coolerModel from '@/assets/cooler.glb';
+import gpuModel from '@/assets/gpu.glb';
+import chassisModel from '@/assets/chassis.glb';
+import psuModel from '@/assets/psu.glb';
+
 // --- 3D IMPORTS ---
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Float, Center } from '@react-three/drei';
@@ -26,14 +35,14 @@ interface ComponentInfo {
 // --- 3D MODEL MAPPING ---
 // Pulling directly from the public folder!
 const MODEL_MAP: Record<string, { file: string, scale: number, rotation: [number, number, number] }> = {
-  'gpu': { file: '/gpu.glb', scale: 1, rotation: [0, 0, 0] },
-  'cpu': { file: '/cpu.glb', scale: 1, rotation: [1.2, 0, 0] }, 
-  'ram': { file: '/ram.glb', scale: 16, rotation: [1.57, 0, 0] }, 
-  'motherboard': { file: '/motherboard.glb', scale: 1.2, rotation: [1.57, 0, 0] },
-  'storage': { file: '/storage.glb', scale: 1.5, rotation: [1.57, 0, 0] },
-  'cooler': { file: '/cooler.glb', scale: 1.2, rotation: [0, 0, 0] },
-  'chassis': { file: '/chassis.glb', scale: 8, rotation: [0, 0, 0] },
-  'psu': { file: '/psu.glb', scale: 1.2, rotation: [0, 0, 0] },
+  'gpu': { file: gpuModel, scale: 1, rotation: [0, 0, 0] },
+  'cpu': { file: cpuModel, scale: 1, rotation: [1.2, 0, 0] }, 
+  'ram': { file: ramModel, scale: 16, rotation: [1.57, 0, 0] }, 
+  'motherboard': { file: motherboardModel, scale: 1.2, rotation: [1.57, 0, 0] },
+  'storage': { file: storageModel, scale: 1.5, rotation: [1.57, 0, 0] },
+  'cooler': { file: coolerModel, scale: 1.2, rotation: [0, 0, 0] },
+  'chassis': { file: chassisModel, scale: 8, rotation: [0, 0, 0] },
+  'psu': { file: psuModel, scale: 1.2, rotation: [0, 0, 0] },
 };
 
 // --- THE HOLOGRAPHIC PROJECTOR ---
@@ -349,11 +358,11 @@ export function ARScanner() {
   );
 }
 
-useGLTF.preload('/motherboard.glb');
-useGLTF.preload('/cpu.glb'); 
-useGLTF.preload('/ram.glb');
-useGLTF.preload('/gpu.glb');
-useGLTF.preload('/cooler.glb');
-useGLTF.preload('/storage.glb');
-useGLTF.preload('/chassis.glb');
-useGLTF.preload('/psu.glb');
+useGLTF.preload(motherboardModel);
+useGLTF.preload(cpuModel); 
+useGLTF.preload(ramModel);
+useGLTF.preload(gpuModel);
+useGLTF.preload(coolerModel);
+useGLTF.preload(storageModel);
+useGLTF.preload(chassisModel);
+useGLTF.preload(psuModel);
