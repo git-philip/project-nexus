@@ -9,16 +9,6 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { supabase } from "../../lib/supabaseClient"; 
 
-// --- 3D MODEL IMPORTS ---
-import motherboardModel from '@/assets/motherboard.glb';
-import cpuModel from '@/assets/cpu.glb';
-import ramModel from '@/assets/ram.glb';
-import storageModel from '@/assets/storage.glb';
-import coolerModel from '@/assets/cooler.glb';
-import gpuModel from '@/assets/gpu.glb';
-import chassisModel from '@/assets/chassis.glb';
-import psuModel from '@/assets/psu.glb';
-
 // --- INVENTORY DATA WITH SCREW COUNTS & DEPENDENCIES ---
 const INVENTORY = [
   { id: 'cpu', name: 'Processor', specs: 'AM4 Socket', icon: Cpu, requires: [], screwCount: 0 },
@@ -95,12 +85,12 @@ function InstallNode({ position, onInstall }: any) {
 }
 
 function HardwareModel({ onSelect }: any) {
-  const { scene } = useGLTF(motherboardModel); 
+  const { scene } = useGLTF('/motherboard.glb'); 
   return <primitive object={scene} scale={1} position={[0, 0, 0]} rotation={[0, 0, 0]} onClick={(e: any) => { e.stopPropagation(); onSelect(); }} onPointerOver={(e: any) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }} onPointerOut={() => document.body.style.cursor = 'auto'} />;
 }
 
 function CPUModel({ onSecure, onUnsecure, onRemove }: any) {
-  const { scene } = useGLTF(cpuModel); 
+  const { scene } = useGLTF('/cpu.glb'); 
   useEffect(() => { onSecure(); }, [onSecure]); 
   return (
     <group position={[-0.25, 0.1, -0.32]} scale={0.25}>
@@ -111,7 +101,7 @@ function CPUModel({ onSecure, onUnsecure, onRemove }: any) {
 }
 
 function RAMModel({ onSecure, onUnsecure, onRemove }: any) {
-  const { scene } = useGLTF(ramModel); 
+  const { scene } = useGLTF('/ram.glb'); 
   useEffect(() => { onSecure(); }, [onSecure]);
   return (
     <group position={[1.45, 0.45, -0.6]}>
@@ -122,7 +112,7 @@ function RAMModel({ onSecure, onUnsecure, onRemove }: any) {
 }
 
 function GPUModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewError, isPrebuilt }: any) {
-  const { scene } = useGLTF(gpuModel); 
+  const { scene } = useGLTF('/gpu.glb'); 
   const [screws, setScrews] = useState(isPrebuilt ? 2 : 0);
   useEffect(() => { if (screws === 2) onSecure(); else onUnsecure(); }, [screws]);
   return (
@@ -136,7 +126,7 @@ function GPUModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewErro
 }
 
 function CoolerModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewError, isPrebuilt }: any) {
-  const { scene } = useGLTF(coolerModel); 
+  const { scene } = useGLTF('/cooler.glb'); 
   const [screws, setScrews] = useState(isPrebuilt ? 4 : 0);
   useEffect(() => { if (screws === 4) onSecure(); else onUnsecure(); }, [screws]);
   return (
@@ -152,7 +142,7 @@ function CoolerModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewE
 }
 
 function StorageModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewError, isPrebuilt }: any) {
-  const { scene } = useGLTF(storageModel); 
+  const { scene } = useGLTF('/storage.glb'); 
   const [screws, setScrews] = useState(isPrebuilt ? 1 : 0);
   useEffect(() => { if (screws === 1) onSecure(); else onUnsecure(); }, [screws]);
   return (
@@ -165,7 +155,7 @@ function StorageModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrew
 }
 
 function ChassisModel({ onSecure, onUnsecure, onRemove }: any) {
-  const { scene } = useGLTF(chassisModel);
+  const { scene } = useGLTF('/chassis.glb');
   useEffect(() => { onSecure(); }, [onSecure]);
   return (
     <group position={[1.6, -0.9, 1.5]}> 
@@ -175,7 +165,7 @@ function ChassisModel({ onSecure, onUnsecure, onRemove }: any) {
 }
 
 function PSUModel({ onSecure, onUnsecure, onRemove, isScrewEquipped, onScrewError, isPrebuilt }: any) {
-  const { scene } = useGLTF(psuModel); 
+  const { scene } = useGLTF('/psu.glb'); 
   const [screws, setScrews] = useState(isPrebuilt ? 4 : 0);
   useEffect(() => { if (screws === 4) onSecure(); else onUnsecure(); }, [screws]);
   return (
@@ -603,11 +593,11 @@ export function PCSimulator3D() {
   );
 }
 
-useGLTF.preload(motherboardModel);
-useGLTF.preload(cpuModel); 
-useGLTF.preload(ramModel);
-useGLTF.preload(gpuModel);
-useGLTF.preload(coolerModel);
-useGLTF.preload(storageModel);
-useGLTF.preload(chassisModel);
-useGLTF.preload(psuModel);
+useGLTF.preload('/motherboard.glb');
+useGLTF.preload('/cpu.glb'); 
+useGLTF.preload('/ram.glb');
+useGLTF.preload('/gpu.glb');
+useGLTF.preload('/cooler.glb');
+useGLTF.preload('/storage.glb');
+useGLTF.preload('/chassis.glb');
+useGLTF.preload('/psu.glb');
