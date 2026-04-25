@@ -192,6 +192,26 @@ export function AdminPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently remove ${userName}? This will completely revoke their access to the system.`)) return;
+
+    try {
+      // 1. Delete their profile (this breaks their ability to log in)
+      const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
+      if (profileError) throw profileError;
+
+      // 2. Clean up their module progress to keep the database tidy
+      await supabase.from('module_progress').delete().eq('user_id', userId);
+
+      // 3. Refresh the UI
+      await fetchUsers();
+      
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      alert(error.message || "Failed to delete user. Check your database permissions.");
+    }
+  };
+
   const instructorList = users.filter(u => u.role === 'Instructor');
 
   // --- UPDATED GRANULAR SECURITY FUNCTIONS ---
@@ -381,7 +401,13 @@ export function AdminPage() {
                               >
                                 <Edit className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
-                              <button className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:text-red-400 rounded transition-colors"><Trash2 className="w-3 h-3 md:w-4 md:h-4" /></button>
+                              <button 
+                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:bg-red-500/20 hover:text-red-400 rounded transition-colors" 
+                                title="Delete User"
+                              >
+                                <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
+                              </button>
                             </td>
                           </tr>
                         ))}
