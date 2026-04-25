@@ -132,27 +132,37 @@ export function AdminPage() {
     setIsAddingUser(true);
     
     try {
-      const newId = crypto.randomUUID();
-      const { error } = await supabase.from('profiles').insert([{
-        id: newId,
+      // 1. Create the user in the Auth system first so we get a valid database UUID
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: 'Password123!', // Setting a default password so they can log in
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Failed to create authentication record.");
+
+      // 2. Insert into profiles using the officially generated Auth ID
+      const { error: profileError } = await supabase.from('profiles').insert([{
+        id: authData.user.id,
         full_name: newUser.name,
         email: newUser.email,
         role: newUser.role,
         assigned_instructor_id: newUser.role === 'student' ? (newUser.instructor_id || null) : null
       }]);
 
-      if (error) {
-        if (error.code === '23503') alert("Database Error: Foreign Key constraint issue on profiles table.");
-        else throw error;
+      if (profileError) {
+        if (profileError.code === '23503') throw new Error("Database Error: Foreign Key constraint issue on assigned instructor.");
+        else throw profileError;
       }
 
       await fetchUsers();
       setIsAddModalOpen(false);
       setNewUser({ name: '', email: '', role: 'student', instructor_id: '' });
+      alert("User successfully added! Their default password is: Password123!");
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding user:", error);
-      alert("Failed to add user.");
+      alert(error.message || "Failed to add user.");
     } finally {
       setIsAddingUser(false);
     }
