@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Progress } from '../components/ui/progress';
 import { Button } from '../components/ui/button';
 import { useNavigate } from 'react-router'; 
-import { Cpu, Camera, Activity, Zap, Database, Wifi, TerminalSquare, ChevronRight } from 'lucide-react';
+import { Cpu, Camera, Activity, Zap, Database, Wifi, TerminalSquare, ChevronRight, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from "../../lib/supabaseClient";
+import { ChangePassword } from './ChangePassword';
 
 export function StudentDashboard() {
   const navigate = useNavigate();
@@ -236,7 +237,7 @@ export function StudentDashboard() {
         </motion.div>
 
         {/* LEARNING MODULES GRID */}
-        <div className="pb-10">
+        <div className="pb-4">
           <h2 className="text-xl font-bold mb-6 text-white uppercase tracking-widest flex items-center gap-2">
             <Activity className="w-5 h-5 text-cyan-400" />
             Available Learning Modules
@@ -280,6 +281,17 @@ export function StudentDashboard() {
                 </Card>
               </motion.div>
             ))}
+          </div>
+        </div>
+
+        {/* ACCOUNT SECURITY SECTION */}
+        <div className="pb-10 pt-4 border-t border-white/10">
+          <h2 className="text-xl font-bold mb-6 text-white uppercase tracking-widest flex items-center gap-2">
+            <Lock className="w-5 h-5 text-cyan-400" />
+            Account Management
+          </h2>
+          <div className="flex justify-start">
+            <ChangePassword />
           </div>
         </div>
 
