@@ -8,9 +8,10 @@ import { Input } from '../components/ui/input';
 import { 
   Server, Users, ShieldAlert, LogOut, Activity, 
   Terminal, Database, Power, Search, Edit, Trash2, 
-  Eye, Award, Loader2, CheckCircle2, UserPlus, X, Save, Network
+  Eye, Award, Loader2, CheckCircle2, UserPlus, X, Save, Network, Lock
 } from 'lucide-react';
 import { supabase } from "../../lib/supabaseClient"; 
+import { ChangePassword } from './ChangePassword';
 
 export function AdminPage() {
   const navigate = useNavigate();
@@ -31,6 +32,10 @@ export function AdminPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [editingUser, setEditingUser] = useState({ id: '', name: '', email: '', role: 'student', instructor_id: '' });
+  
+  // --- ADMIN FORCE PASSWORD RESET STATES ---
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // --- SECURITY STATES (GRANULAR) ---
   const [locks, setLocks] = useState({
@@ -132,16 +137,14 @@ export function AdminPage() {
     setIsAddingUser(true);
     
     try {
-      // 1. Create the user in the Auth system first so we get a valid database UUID
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
-        password: 'Password123!', // Setting a default password so they can log in
+        password: 'Password123!', 
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Failed to create authentication record.");
 
-      // 2. Insert into profiles using the officially generated Auth ID
       const { error: profileError } = await supabase.from('profiles').insert([{
         id: authData.user.id,
         full_name: newUser.name,
@@ -192,18 +195,37 @@ export function AdminPage() {
     }
   };
 
+  // --- FORCE RESET USER PASSWORD (ADMIN API) ---
+  const handleForcePasswordReset = async () => {
+    if (editUserPassword.length < 6) return alert("Password must be at least 6 characters.");
+    setIsResettingPassword(true);
+
+    try {
+      // NOTE: This uses the Admin API. It requires the 'service_role' key in your supabase config.
+      const { data, error } = await supabase.auth.admin.updateUserById(
+        editingUser.id,
+        { password: editUserPassword }
+      );
+      if (error) throw error;
+
+      alert(`Successfully force-changed the password for ${editingUser.name}.`);
+      setEditUserPassword('');
+    } catch (error: any) {
+      console.error("Force password reset failed:", error);
+      alert(`Error: ${error.message}\n\n[ADMIN NOTE]: To change OTHER users' passwords directly from the client, your 'supabaseClient.ts' must be using the 'service_role' key instead of the 'anon' key.`);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!window.confirm(`Are you sure you want to permanently remove ${userName}? This will completely revoke their access to the system.`)) return;
 
     try {
-      // 1. Delete their profile (this breaks their ability to log in)
       const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
       if (profileError) throw profileError;
 
-      // 2. Clean up their module progress to keep the database tidy
       await supabase.from('module_progress').delete().eq('user_id', userId);
-
-      // 3. Refresh the UI
       await fetchUsers();
       
     } catch (error: any) {
@@ -214,7 +236,6 @@ export function AdminPage() {
 
   const instructorList = users.filter(u => u.role === 'Instructor');
 
-  // --- UPDATED GRANULAR SECURITY FUNCTIONS ---
   const fetchSecurityStatus = async () => {
     try {
       const { data, error } = await supabase.from('system_status').select('*').eq('id', 1).single();
@@ -234,16 +255,13 @@ export function AdminPage() {
 
   const toggleModuleLock = async (dbColumn: string, currentValue: boolean) => {
     try {
-      // Optimistic UI update
       setLocks(prev => ({ ...prev, [dbColumn === 'maintenance_mode' ? 'global' : dbColumn]: !currentValue })); 
-      
-      // Update database
       const { error } = await supabase.from('system_status').update({ [dbColumn]: !currentValue }).eq('id', 1);
       if (error) throw error;
     } catch (err) {
       console.error("Failed to toggle lock:", err);
       alert("Failed to lock module. Check database connection.");
-      fetchSecurityStatus(); // Revert UI on failure
+      fetchSecurityStatus(); 
     }
   };
 
@@ -395,6 +413,7 @@ export function AdminPage() {
                                     role: user.role.toLowerCase(), 
                                     instructor_id: user.rawInstructorId
                                   });
+                                  setEditUserPassword(''); 
                                   setIsEditModalOpen(true);
                                 }}
                                 className="p-1.5 md:p-2 bg-slate-800 text-slate-400 hover:text-white rounded transition-colors hidden sm:block" title="Edit User"
@@ -419,7 +438,7 @@ export function AdminPage() {
             </motion.div>
           )}
 
-          {/* 3. SYSTEM CONTROLS */}
+          {/* 3. SYSTEM CONTROLS & ADMIN SECURITY */}
           {activeTab === 'security' && (
             <motion.div key="security" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4 md:space-y-6 max-w-6xl mx-auto">
               <div>
@@ -524,6 +543,17 @@ export function AdminPage() {
                 </div>
 
               </div>
+
+              {/* ADMIN ACCOUNT SETTINGS */}
+              <div className="pt-8 mt-8 border-t border-white/10">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-cyan-400" /> Admin Account Security
+                </h3>
+                <div className="flex justify-start">
+                  <ChangePassword />
+                </div>
+              </div>
+
             </motion.div>
           )}
         </AnimatePresence>
@@ -588,7 +618,7 @@ export function AdminPage() {
         )}
       </AnimatePresence>
 
-      {/* --- EDIT USER MODAL --- */}
+      {/* --- EDIT USER MODAL (NOW WITH PASSWORD OVERRIDE) --- */}
       <AnimatePresence>
         {isEditModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
@@ -635,10 +665,33 @@ export function AdminPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+
+                    {/* NEW: FORCE PASSWORD RESET UI */}
+                    <div className="pt-4 border-t border-white/5 space-y-2">
+                      <Label className="text-[9px] md:text-[10px] text-red-400 font-mono uppercase tracking-widest">Override Password (Optional)</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          type="password"
+                          value={editUserPassword} 
+                          onChange={e => setEditUserPassword(e.target.value)}
+                          placeholder="New password" 
+                          className="bg-slate-950/50 border-red-500/30 text-white font-mono h-10 text-xs md:text-sm focus:border-red-500" 
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={handleForcePasswordReset}
+                          disabled={!editUserPassword || editUserPassword.length < 6 || isResettingPassword}
+                          className="bg-red-500 hover:bg-red-400 text-white font-bold uppercase tracking-widest text-[9px] h-10 w-28 shrink-0"
+                        >
+                          {isResettingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Force Reset'}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="pt-4 flex gap-2 md:gap-3 border-t border-white/5">
                       <Button type="button" onClick={() => setIsEditModalOpen(false)} variant="ghost" className="flex-1 text-slate-400 hover:text-white uppercase tracking-widest text-[9px] md:text-[10px] h-10">Cancel</Button>
                       <Button type="submit" disabled={isUpdatingUser} className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase tracking-widest text-[9px] md:text-[10px] h-10 flex items-center justify-center gap-2">
-                        {isUpdatingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+                        {isUpdatingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Details</>}
                       </Button>
                     </div>
                   </form>

@@ -6,11 +6,12 @@ import { useNavigate } from 'react-router';
 import { 
   Users, TrendingUp, Award, Clock, TerminalSquare, Activity, 
   ShieldAlert, CheckCircle2, UploadCloud, FileText, Trash2, FilePlus,
-  Box, Scan, Network, Bot, ExternalLink
+  Box, Scan, Network, Bot, ExternalLink, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from "../../lib/supabaseClient";
+import { ChangePassword } from './ChangePassword';
 
 interface Student {
   id: string;
@@ -130,7 +131,7 @@ export function InstructorDashboard() {
         name: file.name,
         size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
         url: publicUrl,
-        instructor_id: user.id // <-- THIS IS THE MAGIC FIX!
+        instructor_id: user.id 
       }]);
 
       if (dbError) throw dbError;
@@ -389,7 +390,20 @@ export function InstructorDashboard() {
             </Card>
           </motion.div>
         </div>
+
       </div>
+
+      {/* ACCOUNT SECURITY SECTION */}
+      <div className="pb-10 pt-4 px-2 md:px-0 border-t border-white/10 mt-8">
+        <h2 className="text-xl font-bold mb-6 text-white uppercase tracking-widest flex items-center gap-2">
+          <Lock className="w-5 h-5 text-fuchsia-400" />
+          Account Management
+        </h2>
+        <div className="flex justify-start">
+          <ChangePassword />
+        </div>
+      </div>
+
     </div>
   );
 }
